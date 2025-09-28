@@ -1,4 +1,17 @@
-# Created by https://www.toptal.com/developers/gitignore/api/python,venv
+# Environment files
+.env
+
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# VS Code
+.vscode/# Created by https://www.toptal.com/developers/gitignore/api/python,venv
 # Edit at https://www.toptal.com/developers/gitignore?templates=python,venv
 
 ### Python ###
