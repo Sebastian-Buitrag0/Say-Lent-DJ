@@ -1,7 +1,6 @@
 import discord
 from discord.ext import commands
 import yt_dlp
-import asyncio
 from config import DISCORD_TOKEN
 
 # --- Configuración Inicial ---
