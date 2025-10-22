@@ -2,10 +2,9 @@ aiohappyeyeballs==2.6.1
 aiohttp==3.12.15
 aiosignal==1.4.0
 attrs==25.3.0
-audioop-lts==0.2.2
+audioop-lts==0.2.2;
 cffi==2.0.0
 discord.py==2.6.3
-dotenv==0.9.9
 frozenlist==1.7.0
 idna==3.10
 multidict==6.6.4

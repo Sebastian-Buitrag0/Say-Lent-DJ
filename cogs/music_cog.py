@@ -1,14 +1,21 @@
+import asyncio
+import logging
 import discord
 from discord.ext import commands
 import yt_dlp
-import asyncio
 
-# Opciones para yt-dlp y FFmpeg
-YDL_OPTIONS = {'format': 'bestaudio/best', 'noplaylist': 'True'}
+YDL_OPTIONS = {
+    'format': 'bestaudio/best',
+    'noplaylist': True,
+    'default_search': 'auto',
+    'quiet': True,
+}
 FFMPEG_OPTIONS = {
     'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
     'options': '-vn'
 }
+
+log = logging.getLogger(__name__)
 
 class MusicCog(commands.Cog):
     def __init__(self, bot):
@@ -16,7 +23,11 @@ class MusicCog(commands.Cog):
         self.queues = {}
         self.disconnect_timers = {}
 
-    # --- Funciones Auxiliares ---
+    def _cancel_disconnect_timer(self, guild_id):
+        timer = self.disconnect_timers.pop(guild_id, None)
+        if timer and not timer.done():
+            timer.cancel()
+
     def search_yt(self, query):
         with yt_dlp.YoutubeDL(YDL_OPTIONS) as ydl:
             try:
@@ -25,31 +36,51 @@ class MusicCog(commands.Cog):
                 return None
         return {'source': info['url'], 'title': info['title']}
 
+    async def _after_track(self, ctx, error):
+        if error:
+            log.error("Error en reproducción (%s): %s", ctx.guild.id, error)
+            await ctx.send("⚠️ Hubo un error con la canción. Intento con la siguiente.")
+        await self.play_next(ctx)
+
     async def play_next(self, ctx):
-        if ctx.guild.id in self.queues and self.queues[ctx.guild.id]:
-            song = self.queues[ctx.guild.id].pop(0)
-            
-            # Cancelar temporizador de desconexión si existe
-            if ctx.guild.id in self.disconnect_timers:
-                self.disconnect_timers[ctx.guild.id].cancel()
-                del self.disconnect_timers[ctx.guild.id]
-            
+        queue = self.queues.get(ctx.guild.id, [])
+        if queue:
+            song = queue.pop(0)
+            if not queue:
+                self.queues.pop(ctx.guild.id, None)
+            self._cancel_disconnect_timer(ctx.guild.id)
+
+            voice_client = ctx.guild.voice_client
+            if not voice_client:
+                return
+
             source = discord.FFmpegPCMAudio(song['source'], **FFMPEG_OPTIONS)
-            ctx.voice_client.play(source, after=lambda e: self.bot.loop.create_task(self.play_next(ctx)))
+            voice_client.play(
+                source,
+                after=lambda e: asyncio.run_coroutine_threadsafe(
+                    self._after_track(ctx, e), self.bot.loop
+                )
+            )
             await ctx.send(f"▶️ Ahora reproduciendo: **{song['title']}**")
         else:
+            voice_client = ctx.guild.voice_client
+            if not voice_client:
+                self._cancel_disconnect_timer(ctx.guild.id)
+                return
+            if ctx.guild.id in self.disconnect_timers:
+                return
             await ctx.send("La cola ha terminado.")
-            # Desconectar después de 5 minutos de inactividad
-            self.disconnect_timers[ctx.guild.id] = asyncio.create_task(self.auto_disconnect(ctx))
+            self.disconnect_timers[ctx.guild.id] = self.bot.loop.create_task(self.auto_disconnect(ctx))
 
     async def auto_disconnect(self, ctx):
-        """Desconecta el bot después de 5 minutos de inactividad"""
-        await asyncio.sleep(300)  # 5 minutos
-        if ctx.voice_client and not ctx.voice_client.is_playing():
-            await ctx.voice_client.disconnect()
-            await ctx.send("👋 Me he desconectado por inactividad.")
-        if ctx.guild.id in self.disconnect_timers:
-            del self.disconnect_timers[ctx.guild.id]
+        try:
+            await asyncio.sleep(300)
+            voice_client = ctx.guild.voice_client
+            if voice_client and not (voice_client.is_playing() or voice_client.is_paused()):
+                await voice_client.disconnect()
+                await ctx.send("👋 Me he desconectado por inactividad.")
+        finally:
+            self.disconnect_timers.pop(ctx.guild.id, None)
 
     # --- Checks para comandos ---
     async def cog_check(self, ctx):
@@ -78,11 +109,10 @@ class MusicCog(commands.Cog):
             await ctx.send("No pude encontrar la canción. Intenta con otro nombre.")
             return
 
-        if ctx.guild.id not in self.queues:
-            self.queues[ctx.guild.id] = []
+        queue = self.queues.setdefault(ctx.guild.id, [])
+        queue.append(song)
+        self._cancel_disconnect_timer(ctx.guild.id)
 
-        self.queues[ctx.guild.id].append(song)
-        
         if ctx.voice_client.is_playing() or ctx.voice_client.is_paused():
             await ctx.send(f"✅ Añadido a la cola: **{song['title']}**")
         else:
@@ -135,19 +165,13 @@ class MusicCog(commands.Cog):
             self.queues[ctx.guild.id].clear()
         if ctx.voice_client:
             ctx.voice_client.stop()
-        # Cancelar temporizador de desconexión si existe
-        if ctx.guild.id in self.disconnect_timers:
-            self.disconnect_timers[ctx.guild.id].cancel()
-            del self.disconnect_timers[ctx.guild.id]
+        self._cancel_disconnect_timer(ctx.guild.id)
         await ctx.send("⏹️ Música detenida y cola limpiada.")
 
     @commands.command(name='leave')
     async def leave(self, ctx):
+        self._cancel_disconnect_timer(ctx.guild.id)
         if ctx.voice_client:
-            # Cancelar temporizador de desconexión si existe
-            if ctx.guild.id in self.disconnect_timers:
-                self.disconnect_timers[ctx.guild.id].cancel()
-                del self.disconnect_timers[ctx.guild.id]
             await ctx.voice_client.disconnect()
             await ctx.send("👋 ¡Adiós!")
         else:
