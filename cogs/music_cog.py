@@ -11,10 +11,7 @@ YDL_OPTIONS = {
     'quiet': True,
 }
 FFMPEG_OPTIONS = {
-    'before_options': (
-        '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 '
-        '-user_agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0"'
-    ),
+    'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
     'options': '-vn'
 }
 
@@ -70,11 +67,12 @@ class MusicCog(commands.Cog):
             if not voice_client:
                 return
 
-            ffmpeg_opts = dict(FFMPEG_OPTIONS)
+            ffmpeg_opts = FFMPEG_OPTIONS.copy()
             headers = song.get('headers')
             if headers:
-                header_lines = "\r\n".join(f"{k}: {v}" for k, v in headers.items()) + "\r\n"
-                ffmpeg_opts['before_options'] += f' -headers "{header_lines}"'
+                header_str = "".join([f"{key}: {value}\r\n" for key, value in headers.items()])
+                ffmpeg_opts['before_options'] += f' -headers "{header_str}"'
+            
             source = discord.FFmpegPCMAudio(song['source'], **ffmpeg_opts)
             voice_client.play(
                 source,
