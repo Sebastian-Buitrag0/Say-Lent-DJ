@@ -30,11 +30,15 @@ class MusicCog(commands.Cog):
 
     def search_yt(self, query):
         with yt_dlp.YoutubeDL(YDL_OPTIONS) as ydl:
-            try:
-                info = ydl.extract_info(f"ytsearch:{query}", download=False)['entries'][0]
-            except Exception:
+            info = ydl.extract_info(f"ytsearch1:{query}", download=False)
+            if not info['entries']:
                 return None
-        return {'source': info['url'], 'title': info['title']}
+            entry = info['entries'][0]
+        return {
+            'source': entry['url'],
+            'title': entry['title'],
+            'headers': entry.get('http_headers', {}),
+        }
 
     async def _after_track(self, ctx, error):
         if error:
@@ -54,7 +58,14 @@ class MusicCog(commands.Cog):
             if not voice_client:
                 return
 
-            source = discord.FFmpegPCMAudio(song['source'], **FFMPEG_OPTIONS)
+            ffmpeg_opts = dict(FFMPEG_OPTIONS)
+            headers = song.get('headers')
+            if headers:
+                header_lines = ''.join(f"{k}: {v}\r\n" for k, v in headers.items())
+                ffmpeg_opts['before_options'] = (
+                    ffmpeg_opts['before_options'] + f' -headers "{header_lines}"'
+                )
+            source = discord.FFmpegPCMAudio(song['source'], **ffmpeg_opts)
             voice_client.play(
                 source,
                 after=lambda e: asyncio.run_coroutine_threadsafe(
