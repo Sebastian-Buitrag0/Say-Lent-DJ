@@ -61,10 +61,8 @@ class MusicCog(commands.Cog):
             ffmpeg_opts = dict(FFMPEG_OPTIONS)
             headers = song.get('headers')
             if headers:
-                header_lines = ''.join(f"{k}: {v}\r\n" for k, v in headers.items())
-                ffmpeg_opts['before_options'] = (
-                    ffmpeg_opts['before_options'] + f' -headers "{header_lines}"'
-                )
+                header_lines = "\r\n".join(f"{k}: {v}" for k, v in headers.items()) + "\r\n"
+                ffmpeg_opts['before_options'] += f' -headers "{header_lines}"'
             source = discord.FFmpegPCMAudio(song['source'], **ffmpeg_opts)
             voice_client.play(
                 source,
