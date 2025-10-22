@@ -8,32 +8,44 @@ class GeneralCog(commands.Cog):
     @commands.command(name='help')
     async def help(self, ctx):
         embed = discord.Embed(
-            title="🎵 Ayuda de Comandos del Bot de Música",
-            description="Aquí tienes una lista de todos los comandos disponibles y lo que hacen.",
-            color=discord.Color.purple()
+            title="🎶 ¡Bienvenido a Say-Lent DJ!",
+            description=(
+                "Usa estos comandos para controlar la música en tu servidor.\n"
+                "Para reproducir algo rápidamente: **`!play <canción o URL>`**"
+            ),
+            color=discord.Color.from_rgb(138, 43, 226)
         )
-
+        embed.set_thumbnail(url="https://cdn-icons-png.flaticon.com/512/727/727269.png")
         embed.add_field(
-            name="▶️ Comandos Principales",
-            value="`!play [nombre/URL]` - Reproduce una canción o la añade a la cola.\n"
-                  "`!pause` - Pausa la canción actual.\n"
-                  "`!resume` - Reanuda la canción pausada.\n"
-                  "`!skip` - Salta a la siguiente canción de la cola.\n"
-                  "`!stop` - Detiene la música y limpia la cola.",
+            name="▶️ Reproducción",
+            value=(
+                "`!play <nombre/URL>` — Reproduce o agrega a la cola\n"
+                "`!pause` — Pausa la pista actual\n"
+                "`!resume` — Reanuda la reproducción\n"
+                "`!skip` — Salta a la siguiente canción\n"
+                "`!stop` — Detiene todo y limpia la cola"
+            ),
             inline=False
         )
-
         embed.add_field(
-            name="📋 Comandos de Gestión de Cola y Canal",
-            value="`!queue` - Muestra la cola de canciones actual.\n"
-                  "`!clear` - Limpia todas las canciones de la cola.\n"
-                  "`!join` - Hace que el bot se una a tu canal de voz.\n"
-                  "`!leave` - Desconecta el bot del canal de voz.",
+            name="📋 Gestión de Cola",
+            value=(
+                "`!queue` — Muestra las canciones en espera\n"
+                "`!clear` — Vacía la cola completa\n"
+                "`!remove <posición>` — Quita una canción específica"
+            ),
             inline=False
         )
-        
-        embed.set_footer(text="Recuerda estar en un canal de voz para usar los comandos de música.")
-
+        embed.add_field(
+            name="🔊 Voz",
+            value=(
+                "`!join` — El bot se une a tu voz\n"
+                "`!leave` — Se desconecta del canal\n"
+                "`!np` — Muestra la canción actual"
+            ),
+            inline=False
+        )
+        embed.set_footer(text="Recuerda estar en un canal de voz antes de usar los comandos musicales.")
         await ctx.send(embed=embed)
 
 async def setup(bot):
